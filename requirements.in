@@ -1,0 +1,19 @@
+# torch/torchvision se instalan antes desde el índice CPU o CUDA correspondiente.
+ultralytics
+opencv-python
+numpy
+pandas
+scikit-learn
+pyyaml
+pillow
+lxml
+tqdm
+gpxpy
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+python-multipart
+pydantic-settings
+httpx
+pytest

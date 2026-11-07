@@ -1,0 +1,74 @@
+# Documentación de trabajo local (README.md ya pertenece al repositorio)
+docs/
+*.md
+!README.md
+*.pdf
+*.docx
+*.pptx
+
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+
+# Entornos, cachés y herramientas locales
+.venv/
+venv/
+.local/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.idea/
+.vscode/
+.ipynb_checkpoints/
+
+# Dependencias y compilación
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Datos, manifiestos, checkpoints y resultados generados
+data/
+artifacts/
+runs/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# Capturas y bases de datos locales
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.gpx
+*.fit
+*.sqlite3
+*.sqlite3-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+
+# Descargas, temporales y logs
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db

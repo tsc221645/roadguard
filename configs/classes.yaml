@@ -1,0 +1,11 @@
+# Única correspondencia de clases; conservar en datos, modelos y aplicación.
+names:
+  0: D00
+  1: D10
+  2: D20
+  3: D40
+descriptions:
+  D00: Grieta longitudinal
+  D10: Grieta transversal
+  D20: Grieta tipo piel de cocodrilo
+  D40: Bache y deterioros agrupados en D40 por RDD2022
