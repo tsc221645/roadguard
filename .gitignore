@@ -5,6 +5,7 @@ docs/
 *.pdf
 *.docx
 *.pptx
+run.txt
 
 # Secretos y configuración local
 .env

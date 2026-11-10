@@ -29,14 +29,19 @@ def main():
         parser.error("--conf debe estar entre 0 y 1")
 
     model = YOLO(str(args.model.resolve()))
+    source_suffix = Path(str(args.source)).suffix.lower()
+    is_video = source_suffix in {".mp4", ".mov", ".avi", ".mkv"}
     results = model.predict(source=args.source, conf=args.conf, imgsz=args.imgsz,
                             device=args.device, project=str(args.output), name=args.name,
                             exist_ok=True, save=True, save_txt=args.save_txt,
-                            save_conf=args.save_conf, verbose=False)
+                            save_conf=args.save_conf, stream=is_video, verbose=False)
     output_dir = args.output / args.name
-    if args.report:
-        detections = []
-        for result in results:
+    detections = []
+    summary = {name: 0 for name in model.names.values()}
+    processed = 0
+    for result in results:
+        processed += 1
+        if args.report:
             boxes = result.boxes
             rows = []
             if boxes is not None:
@@ -51,12 +56,15 @@ def main():
                         "confidence": float(confidence),
                         "xyxy": [float(value) for value in coordinates],
                     })
+                    summary[result.names[class_id]] = summary.get(result.names[class_id], 0) + 1
             detections.append({"source": str(result.path), "detections": rows})
+    if args.report:
         (output_dir / "detections.json").write_text(
             json.dumps({"model": str(args.model.resolve()), "conf": args.conf,
-                        "items": detections}, indent=2) + "\n",
+                        "total_detections": sum(summary.values()),
+                        "detections_by_class": summary, "items": detections}, indent=2) + "\n",
             encoding="utf-8")
-    print(f"Procesados: {len(results)}")
+    print(f"Procesados: {processed}")
     print(f"Resultados: {output_dir}")
 
 

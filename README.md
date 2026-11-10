@@ -103,7 +103,7 @@ python -m ml.convert_voc_to_yolo --root data/raw/RDD2022
 
 ## Uso del modelo entrenado
 
-La calibraciÃ³n sobre validaciÃ³n seleccionÃ³ `conf=0.10` para ambos modelos; el modelo B se toma como opciÃ³n predeterminada por su mejor recall y F1 ligeramente superior.
+La calibración en el conjunto de validación seleccionó `conf=0.10` para ambos modelos. El modelo B se establece como opción predeterminada porque obtuvo un recall y un F1 ligeramente superiores.
 
 Para ejecutar inferencia sobre una imagen, carpeta o video desde el entorno Conda `dm1`:
 
@@ -113,6 +113,18 @@ conda run -n dm1 python -m ml.predict --source ruta\al\recorrido.mp4 --device 0 
 ```
 
 Por defecto usa `artifacts/runs/model_b/weights/best.pt` y guarda los resultados en `artifacts/predictions/latest`. `--report` genera `detections.json` con clase, confianza y coordenadas. Se puede cambiar el modelo con `--model`, el nombre de salida con `--name` y exportar etiquetas con `--save-txt --save-conf`.
+
+### Interfaz local
+
+La interfaz web local permite cargar imágenes o videos, seleccionar el umbral de confianza, visualizar la evidencia y descargar el reporte JSON. Se ejecuta con el entorno `dm1`:
+
+```powershell
+$env:PYTHONNOUSERSITE = "1"
+$env:ROADGUARD_DEVICE = "0"
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Luego abre `http://127.0.0.1:8000`. Los archivos generados se guardan en `artifacts/app`. El backend limita las cargas a 500 MB y no envía archivos fuera del equipo.
 
 ## Alcance y limitaciones
 

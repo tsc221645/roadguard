@@ -3,6 +3,7 @@
 Ejemplos (usar el entorno Conda dm1):
   python -m ml.train --name model_a --epochs 25
   python -m ml.train --name model_b --epochs 25 --lr0 0.0005 --degrees 3
+  python -m ml.train --name model_c --epochs 50 --lr0 0.0005 --degrees 3
 """
 import argparse
 from pathlib import Path
@@ -15,7 +16,8 @@ PROJECT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", required=True, choices=("model_a", "model_b", "smoke_a", "smoke_b"))
+    parser.add_argument("--name", required=True,
+                        choices=("model_a", "model_b", "model_c", "smoke_a", "smoke_b"))
     parser.add_argument("--data", type=Path, default=PROJECT / "data/processed/rdd2022/dataset.yaml")
     parser.add_argument("--model", default="yolo11n.pt")
     parser.add_argument("--epochs", type=int, default=25)
