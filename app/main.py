@@ -5,8 +5,11 @@ import json
 import os
 import uuid
 from pathlib import Path
+from queue import Queue
+from threading import Lock, Thread
 from typing import Any
 
+import cv2
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +27,10 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".avi", 
 app = FastAPI(title="RoadGuard API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _model: YOLO | None = None
+_queue: Queue[tuple[str, Path, Path, float, str, int, bool]] = Queue()
+_jobs: dict[str, dict[str, Any]] = {}
+_jobs_lock = Lock()
+_worker: Thread | None = None
 
 
 def get_model() -> YOLO:
@@ -35,20 +42,84 @@ def get_model() -> YOLO:
     return _model
 
 
-def collect_detections(results: list[Any], model: YOLO, confidence: float) -> dict[str, Any]:
-    summary = {name: 0 for name in model.names.values()}
-    items = []
-    for result in results:
-        rows = []
-        if result.boxes is not None:
-            boxes = result.boxes
-            for coordinates, score, class_id in zip(boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist(), boxes.cls.cpu().tolist()):
-                class_id = int(class_id)
-                name = result.names[class_id]
-                summary[name] = summary.get(name, 0) + 1
-                rows.append({"class_id": class_id, "class_name": name, "confidence": round(float(score), 5), "xyxy": [round(float(value), 2) for value in coordinates]})
-        items.append({"source": Path(result.path).name, "detections": rows})
-    return {"model": str(MODEL_PATH), "confidence_threshold": confidence, "total_detections": sum(summary.values()), "detections_by_class": summary, "items": items}
+def update_job(job_id: str, **changes: Any) -> None:
+    with _jobs_lock:
+        _jobs[job_id].update(changes)
+
+
+def video_frame_count(path: Path) -> int | None:
+    capture = cv2.VideoCapture(str(path))
+    try:
+        count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT)) if capture.isOpened() else 0
+        return count if count > 0 else None
+    finally:
+        capture.release()
+
+
+def process_job(job_id: str, input_path: Path, output_dir: Path, confidence: float,
+                filename: str, size: int, is_video: bool) -> None:
+    try:
+        model = get_model()
+        total_frames = video_frame_count(input_path) if is_video else 1
+        update_job(job_id, status="processing", total_frames=total_frames)
+        summary = {name: 0 for name in model.names.values()}
+        items = []
+        results = model.predict(source=str(input_path), conf=confidence, imgsz=640,
+                                device=os.getenv("ROADGUARD_DEVICE", "0"),
+                                project=str(output_dir), name="prediction", exist_ok=True,
+                                save=True, stream=True, verbose=False)
+        for frame_index, result in enumerate(results, start=1):
+            rows = []
+            if result.boxes is not None:
+                boxes = result.boxes
+                for coordinates, score, class_id in zip(
+                    boxes.xyxy.cpu().tolist(), boxes.conf.cpu().tolist(), boxes.cls.cpu().tolist()
+                ):
+                    class_id = int(class_id)
+                    name = result.names[class_id]
+                    summary[name] = summary.get(name, 0) + 1
+                    rows.append({"class_id": class_id, "class_name": name,
+                                 "confidence": round(float(score), 5),
+                                 "xyxy": [round(float(value), 2) for value in coordinates]})
+            items.append({"source": Path(result.path).name, "frame": frame_index,
+                          "detections": rows})
+            update_job(job_id, processed_frames=frame_index,
+                       total_detections=sum(summary.values()))
+
+        report = {"model": str(MODEL_PATH), "confidence_threshold": confidence,
+                  "total_detections": sum(summary.values()),
+                  "detections_by_class": summary, "items": items,
+                  "job_id": job_id, "filename": filename, "bytes": size}
+        rendered_dir = output_dir / "prediction"
+        rendered = next((path for path in rendered_dir.iterdir() if path.is_file()), None)
+        if rendered is None:
+            raise RuntimeError("La inferencia no generó un resultado visual.")
+        (output_dir / "detections.json").write_text(
+            json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        update_job(job_id, status="completed", progress=100,
+                   total_frames=len(items) if total_frames is None else total_frames,
+                   result={**report, "media_type": "video" if is_video else "image",
+                           "result_url": f"/api/jobs/{job_id}/media",
+                           "report_url": f"/api/jobs/{job_id}/report"})
+    except Exception as error:
+        update_job(job_id, status="failed", error=str(error))
+
+
+def run_queue() -> None:
+    while True:
+        job = _queue.get()
+        try:
+            process_job(*job)
+        finally:
+            _queue.task_done()
+
+
+def ensure_worker() -> None:
+    global _worker
+    with _jobs_lock:
+        if _worker is None or not _worker.is_alive():
+            _worker = Thread(target=run_queue, daemon=True, name="roadguard-inference")
+            _worker.start()
 
 
 @app.get("/", response_class=FileResponse)
@@ -79,18 +150,16 @@ async def predict(file: UploadFile = File(...), confidence: float = Query(0.10, 
                 if size > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=413, detail="El archivo supera el límite de 500 MB.")
                 destination.write(chunk)
-        model = get_model()
+        get_model()
         is_video = suffix in {".mp4", ".mov", ".avi", ".mkv"}
-        results = model.predict(source=str(input_path), conf=confidence, imgsz=640, device=os.getenv("ROADGUARD_DEVICE", "0"), project=str(output_dir), name="prediction", exist_ok=True, save=True, stream=is_video, verbose=False)
-        report = collect_detections(results, model, confidence)
-        report.update({"job_id": job_id, "filename": file.filename, "bytes": size})
-        (output_dir / "detections.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        rendered_dir = output_dir / "prediction"
-        rendered = next((path for path in rendered_dir.iterdir() if path.is_file()), None)
-        if rendered is None:
-            raise HTTPException(status_code=500, detail="La inferencia no generó un resultado visual.")
-        media_type = "video" if is_video else "image"
-        return {**report, "media_type": media_type, "result_url": f"/api/jobs/{job_id}/media", "report_url": f"/api/jobs/{job_id}/report"}
+        job = {"job_id": job_id, "status": "queued", "filename": file.filename,
+               "processed_frames": 0, "total_frames": None, "total_detections": 0}
+        with _jobs_lock:
+            _jobs[job_id] = job
+        ensure_worker()
+        _queue.put((job_id, input_path, output_dir, confidence,
+                    file.filename or input_path.name, size, is_video))
+        return job
     except HTTPException:
         raise
     except Exception as error:
@@ -106,6 +175,15 @@ def job_path(job_id: str) -> Path:
     if not path.is_dir():
         raise HTTPException(status_code=404, detail="Trabajo no encontrado.")
     return path
+
+
+@app.get("/api/jobs/{job_id}")
+def job_status(job_id: str) -> dict[str, Any]:
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if job is not None:
+            return dict(job)
+    raise HTTPException(status_code=404, detail="Trabajo no encontrado o servidor reiniciado.")
 
 
 @app.get("/api/jobs/{job_id}/report")

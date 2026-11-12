@@ -74,6 +74,27 @@ La separación por país/dominio favorece una evaluación conservadora de transf
 - Evaluación A/B sobre el test congelado completada.
 - Selección de umbral, API y frontend: pendientes.
 
+## Requisitos mínimos
+
+### Inferencia: imágenes y videos
+
+- Windows 10/11 de 64 bits.
+- CPU de cuatro núcleos.
+- 8 GB de RAM.
+- 5 GB de espacio libre, además del tamaño de los videos que se procesen.
+- Python 3.11–3.13 y el entorno Conda `dm1`.
+- Navegador moderno para la interfaz local.
+- El checkpoint `artifacts/runs/model_b/weights/best.pt`.
+
+La GPU no es obligatoria para inferencia, pero una GPU NVIDIA con al menos 4 GB de VRAM reduce considerablemente el tiempo de procesamiento. La RTX 3050 de 8 GB usada en desarrollo cumple los requisitos recomendados.
+
+### Entrenamiento
+
+- GPU NVIDIA con 8 GB de VRAM recomendados.
+- 16 GB de RAM.
+- 30–50 GB de espacio libre en SSD.
+- PyTorch con CUDA compatible y el entorno Conda `dm1`.
+
 ## Ejecución en Windows
 
 Para el pipeline de datos se requiere Python 3.13 con las dependencias correspondientes. Para entrenamiento en la RTX 3050 se utiliza el entorno Conda `dm1`, que ya tiene PyTorch con CUDA y Ultralytics.
@@ -125,6 +146,27 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Luego abre `http://127.0.0.1:8000`. Los archivos generados se guardan en `artifacts/app`. El backend limita las cargas a 500 MB y no envía archivos fuera del equipo.
+
+### Cómo probar una imagen o video
+
+1. Inicia la interfaz con el comando anterior.
+2. Abre `http://127.0.0.1:8000`.
+3. Arrastra una imagen o video al área de carga.
+4. Usa `0.10` como confianza inicial; es el umbral seleccionado en validación.
+5. Presiona **Analizar archivo**.
+6. Revisa la evidencia visual y el resumen por clase.
+7. Descarga `detections.json` si necesitas conservar las detecciones.
+
+La interfaz muestra el avance de la carga y, durante la inferencia, los fotogramas procesados y las detecciones encontradas. Se puede recargar la pestaña y recuperar el progreso mientras el servidor siga activo. Los trabajos se procesan de uno en uno para compartir la GPU. Los resultados visuales se guardan en `artifacts/app/results/<job_id>/prediction` y el reporte en `artifacts/app/results/<job_id>/detections.json`. En videos, el conteo corresponde a detecciones por fotograma; un mismo daño puede aparecer varias veces. Si el navegador no reproduce el video generado, descárgalo y ábrelo con un reproductor local.
+
+Las clases mostradas por la interfaz son:
+
+- `D00`: grieta longitudinal.
+- `D10`: grieta transversal.
+- `D20`: grieta tipo piel de cocodrilo.
+- `D40`: bache.
+
+Las predicciones son una ayuda para revisión y deben confirmarse visualmente; no representan una certificación estructural.
 
 ## Alcance y limitaciones
 

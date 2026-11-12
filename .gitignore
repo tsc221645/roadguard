@@ -2,6 +2,7 @@
 docs/
 *.md
 !README.md
+!REPORTE_METRICAS.md
 *.pdf
 *.docx
 *.pptx
@@ -73,3 +74,4 @@ runs/
 *~
 .DS_Store
 Thumbs.db
+REPORTE_METRICAS.md
