@@ -1,0 +1,57 @@
+{
+  "seed": 42,
+  "requested_ratios": [
+    0.7,
+    0.15,
+    0.15
+  ],
+  "duplicate_copies_removed": 0,
+  "group_map_sha256": "6f6055b3cf268eafe2149678e079ab24962af0e714e2c3bf62145cbcdc6842dd",
+  "similarity_links_sha256": null,
+  "converted_manifest_sha256": "54981c395cc8c3a53ee148cad1367291aecb70b48af07dafd71e1813c8473546",
+  "classes": {
+    "0": "D00",
+    "1": "D10",
+    "2": "D20",
+    "3": "D40"
+  },
+  "splits": {
+    "train": {
+      "images": 20773,
+      "groups": 5,
+      "class_instances": {
+        "D00": 23595,
+        "D10": 10166,
+        "D20": 10160,
+        "D40": 6261
+      },
+      "missing_classes": [],
+      "manifest_sha256": "85f9c7d836a1338e569a3050fa67ad8238a00e9797f30ae2b9ec6490f0d8bdd6"
+    },
+    "val": {
+      "images": 1919,
+      "groups": 1,
+      "class_instances": {
+        "D00": 1426,
+        "D10": 1263,
+        "D20": 293,
+        "D40": 86
+      },
+      "missing_classes": [],
+      "manifest_sha256": "f2a603379807acb1e6dcf5abcec0e3ddad0f177f38a0693a010791fa5d87caee"
+    },
+    "test": {
+      "images": 1072,
+      "groups": 1,
+      "class_instances": {
+        "D00": 988,
+        "D10": 399,
+        "D20": 161,
+        "D40": 197
+      },
+      "missing_classes": [],
+      "manifest_sha256": "b1a6284fc4dd0a5ae8f8b5356f068cf7d5ccad1439ef3c60e0f32bc32b93deb4"
+    }
+  },
+  "grouping_warning": "La independencia real depende de la justificación del CSV de grupos"
+}

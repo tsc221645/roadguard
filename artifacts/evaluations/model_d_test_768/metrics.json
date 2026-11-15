@@ -1,0 +1,23 @@
+{
+  "model": "D:\\roadguard\\artifacts\\runs\\model_d\\weights\\best.pt",
+  "data": "D:\\roadguard\\data\\processed\\rdd2022\\dataset.yaml",
+  "split": "test",
+  "imgsz": 768,
+  "batch": 4,
+  "device": "0",
+  "results": {
+    "metrics/precision(B)": 0.34031801120752686,
+    "metrics/recall(B)": 0.2747491011704661,
+    "metrics/mAP50(B)": 0.2171925767394851,
+    "metrics/mAP50-95(B)": 0.07490951693249567,
+    "fitness": 0.07490951693249567
+  },
+  "map50": 0.2171925767394851,
+  "map50_95": 0.07490951693249567,
+  "per_class_map50_95": [
+    0.11393828778184505,
+    0.10104268628660192,
+    0.058806019738297424,
+    0.025851073923238314
+  ]
+}

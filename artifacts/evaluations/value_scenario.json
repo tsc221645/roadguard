@@ -1,0 +1,38 @@
+{
+  "scenario": "Ilustrativo; costos supuestos, no medidos",
+  "currency": "Q",
+  "missed_cost": 100.0,
+  "review_cost_per_alert": 5.0,
+  "a_cost": 128280.0,
+  "b_cost": 127910.0,
+  "b_saving_vs_a": 370.0,
+  "paired_image_bootstrap_95_percent": [
+    -2075.0,
+    2795.0
+  ],
+  "bootstrap_samples": 5000,
+  "images": 1072,
+  "seed": 42,
+  "sensitivity": [
+    {
+      "factor": 0.5,
+      "b_saving_vs_a": 170.0
+    },
+    {
+      "factor": 0.8,
+      "b_saving_vs_a": 290.0
+    },
+    {
+      "factor": 1.0,
+      "b_saving_vs_a": 370.0
+    },
+    {
+      "factor": 1.2,
+      "b_saving_vs_a": 450.0
+    },
+    {
+      "factor": 1.5,
+      "b_saving_vs_a": 570.0
+    }
+  ]
+}

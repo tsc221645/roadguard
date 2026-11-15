@@ -2,7 +2,6 @@
 docs/
 *.md
 !README.md
-!REPORTE_METRICAS.md
 *.pdf
 *.docx
 *.pptx
@@ -38,11 +37,18 @@ build/
 coverage/
 *.tsbuildinfo
 
-# Datos, manifiestos, checkpoints y resultados generados
-data/
-artifacts/
-runs/
+# Dataset y archivos personales; los manifiestos, métricas y checkpoints sí se pueden subir
+data/raw/
+data/intermediate/rdd2022/labels/
+data/processed/rdd2022/images/
+data/processed/rdd2022/labels/
+data/photos_ds1/
+data/video_ds1/
+artifacts/app/
+artifacts/predictions/
+/runs/
 *.pt
+!artifacts/runs/**/weights/*.pt
 *.pth
 *.onnx
 *.safetensors

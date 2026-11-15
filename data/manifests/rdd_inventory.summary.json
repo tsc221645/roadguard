@@ -1,0 +1,21 @@
+{
+  "images": 47420,
+  "xml_files": 38385,
+  "status_counts": {
+    "ready": 35490,
+    "ignored_only": 2894,
+    "missing_xml": 9035,
+    "invalid": 1
+  },
+  "duplicate_image_copies": 2,
+  "country_images": {
+    "China": 4878,
+    "Czech": 3538,
+    "India": 9665,
+    "Japan": 13133,
+    "Norway": 10201,
+    "United_States": 6005
+  },
+  "inventory_sha256": "c1f1b93535cf622923ce901e4a1899632ce872480ce18bb5e624cf7bc1c21d9e",
+  "coordinate_convention": "continuous_0_W_0_H_no_clipping"
+}

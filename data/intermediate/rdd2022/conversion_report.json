@@ -1,0 +1,20 @@
+{
+  "accepted": 23766,
+  "excluded": 23654,
+  "exclusion_reasons": {
+    "ignored_only": 2894,
+    "empty_annotation_requires_opt_in": 11724,
+    "missing_xml": 9035,
+    "invalid": 1
+  },
+  "inventory_sha256": "c1f1b93535cf622923ce901e4a1899632ce872480ce18bb5e624cf7bc1c21d9e",
+  "include_empty_annotations": false,
+  "ignored_only_policy": "exclude",
+  "clipping": false,
+  "classes": {
+    "0": "D00",
+    "1": "D10",
+    "2": "D20",
+    "3": "D40"
+  }
+}
