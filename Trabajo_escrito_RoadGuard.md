@@ -18,7 +18,7 @@ El usuario previsto es un equipo municipal, concesionario o contratista que insp
 
 La unidad de decisión del prototipo es una **detección visual por imagen o fotograma**. Una misma grieta puede aparecer en varios fotogramas y generar varias alertas. Por ello, el conteo bruto expresa alertas por imagen, no daños físicos independientes. El análisis económico de este informe utiliza esa misma unidad de conteo.
 
-El escenario de negocio se expresa por lote de 1 072 imágenes, la unidad disponible en el test. Sus indicadores son daños etiquetados omitidos, alertas para revisión, tiempo de inferencia y costo ilustrativo del lote. Los resultados no se extrapolan a kilómetros ni a presupuestos mensuales.
+El escenario de negocio se expresa por lote de 1 072 imágenes, la unidad disponible en el test. Sus indicadores son daños etiquetados omitidos, alertas para revisión, tiempo de inferencia y costo ilustrativo del lote. **El modelo A sirve como línea base experimental:** 1 216 omisiones, 1 336 alertas y Q128 280 de costo supuesto; B se compara con esos valores. Esta línea base describe un modelo anterior, no el costo observado de una inspección manual. Los resultados no se extrapolan a kilómetros ni a presupuestos mensuales.
 
 Se eligió detección con deep learning porque los defectos tienen formas, escalas, iluminación y fondos variables, y el flujo requiere localizar múltiples objetos dentro de una imagen. Una regla basada en color o bordes es una alternativa conceptual más simple; la comparación experimental presentada aquí se concentra en cinco configuraciones de YOLO11.
 
@@ -98,11 +98,17 @@ Si el costo por FN cambia en ±20 % o ±50 % y Q5 por revisión se mantiene fijo
 
 *Figura 3. Ahorro puntual al variar el costo supuesto de omisión. La barra vertical corresponde al intervalo bootstrap solo en el escenario Q100.*
 
+La relación entre calidad técnica y costo también se observa al comparar las cinco iteraciones al mismo umbral. De C a B, el recall operativo sube de 26,48 % a 30,54 % y el costo ilustrativo baja de Q134 360 a Q127 910 por lote. La figura siguiente es una **curva discreta entre modelos**, no una curva de umbral ni una estimación causal aislada del recall: también cambian las falsas alarmas y la arquitectura.
+
+![Recall operativo y costo por iteración](graficas/07_recall_y_valor.png)
+
+*Figura 4. Relación observada entre recall y costo en A–E, con confianza 0,10 y supuestos Q100/Q5.*
+
 Los barridos existentes de A y B probaron umbrales 0,10–0,70 en validación y eligieron **0,10 por F1**, no por costo. La elección documentada responde a F1, mientras que la función de costo se aplica a las cuentas operativas del umbral seleccionado. La consulta del test durante las iteraciones A–E limita su independencia como evaluación confirmatoria.
 
 ## 4. Metodología de desarrollo
 
-RoadGuard ajustó detectores [YOLO11](https://docs.ultralytics.com/models/yolo11/) preentrenados. La red localiza y clasifica varias cajas por imagen; esto se ajusta a defectos de forma y escala variables. El alcance experimental compara arquitecturas y configuraciones de YOLO11; no asigna un beneficio incremental frente a reglas visuales o inspección manual. El entrenamiento usa semilla 42 y modo determinista. Los archivos `args.yaml` registran función compuesta de pérdidas de caja, clasificación y distribución (`box`, `cls`, `dfl`) con ponderaciones 7,5, 0,5 y 1,5 de la configuración efectiva de Ultralytics. No hay ponderación específica por costo de FN, FP o clase.
+RoadGuard ajustó detectores [YOLO11](https://docs.ultralytics.com/models/yolo11/) preentrenados. La red localiza y clasifica varias cajas por imagen; esto se ajusta a defectos de forma y escala variables. El alcance experimental compara arquitecturas y configuraciones de YOLO11; no asigna un beneficio incremental frente a reglas visuales o inspección manual. El entrenamiento usa semilla 42 y modo determinista. Los archivos `args.yaml` registran función compuesta de pérdidas de caja, clasificación y distribución (`box`, `cls`, `dfl`) con ponderaciones 7,5, 0,5 y 1,5 de la configuración efectiva de Ultralytics. La pérdida favorece localización y clasificación de cajas; no pondera directamente el costo de FN, FP o cada clase. La función de valor evalúa ese intercambio después de entrenar, con el umbral elegido por F1.
 
 | Iteración | Checkpoint inicial | Configuración distintiva | Épocas completadas |
 |---|---|---|---:|
@@ -128,15 +134,27 @@ La tabla de prueba usa el mejor checkpoint de cada corrida y **640 px para todos
 | D | 31,69 % | 26,92 % | 20,10 % | 7,08 % | 33,72 % | 92,2 min adicionales a B | 7,06 ms/imagen |
 | E | 33,93 % | 29,30 % | 21,64 % | 7,32 % | **36,00 %** | 175,3 min | 9,13 ms/imagen |
 
+Los registros de la última época también permiten comparar las pérdidas durante el entrenamiento y la validación:
+
+| Modelo | Pérdida de caja train | Pérdida de caja val | Pérdida de clasificación train | Pérdida de clasificación val |
+|---|---:|---:|---:|---:|
+| A | 1,664 | 1,756 | 1,636 | 2,172 |
+| B | 1,657 | 1,806 | 1,637 | 2,154 |
+| C | 1,775 | 1,876 | 1,923 | 2,375 |
+| D | 1,640 | 1,796 | 1,639 | 2,171 |
+| E | 1,569 | 1,736 | 1,454 | 2,125 |
+
+La pérdida de clasificación en validación supera a la de entrenamiento en todas las corridas. Junto con la brecha entre validación y test, esta diferencia motiva cautela sobre generalización; no permite identificar por sí sola sobreajuste, porque las particiones provienen de dominios distintos.
+
 En test, B tiene el mAP@0,50 y mAP@0,50:0,95 más altos de las cinco corridas a 640 px, pero las diferencias frente a A son **0,49** y **0,15 puntos porcentuales**, respectivamente. E tiene mayor precisión de Ultralytics que B (33,93 % frente a 32,36 %) y un F1 descriptivo calculado de sus medias P/R de **31,45 %** frente a **30,84 %**; no equivale al F1 operativo de cajas a umbral fijo. E logra un mAP de validación superior al resto al final de su entrenamiento, sin trasladar esa ventaja a Czech. Esto es consistente con un cambio de dominio o ajuste a validación, pero no identifica por sí solo la causa. D exigió 92,2 minutos de ajuste **además** de los 125,0 minutos de B, sin superar a B en prueba a 640 px.
 
 ![mAP de los cinco modelos](graficas/02_map_modelos.png)
 
-*Figura 4. Métricas de prueba de los mejores checkpoints; comparación homogénea a 640 px.*
+*Figura 5. Métricas de prueba de los mejores checkpoints; comparación homogénea a 640 px.*
 
 ![Curvas de validación](graficas/03_curvas_validacion.png)
 
-*Figura 5. mAP@0,50 durante las épocas registradas. Las curvas son de validación; el test se evaluó aparte.*
+*Figura 6. mAP@0,50 durante las épocas registradas. Las curvas son de validación; el test se evaluó aparte.*
 
 En los CSV, el **máximo por época** de mAP@0,50 en validación fue 32,38 % (A), 32,20 % (B), 26,17 % (C), 33,72 % (D) y 36,18 % (E). Estos máximos no necesariamente ocurrieron en la misma época que el máximo de mAP@0,50:0,95 ni representan por sí solos la evaluación del checkpoint final.
 
@@ -152,7 +170,7 @@ En los CSV, el **máximo por época** de mAP@0,50 en validación fue 32,38 % (A)
 
 ![mAP por clase](graficas/06_map_por_clase.png)
 
-*Figura 6. Desempeño por clase: una métrica global puede ocultar la dificultad para detectar baches.*
+*Figura 7. Desempeño por clase: una métrica global puede ocultar la dificultad para detectar baches.*
 
 El error por clase limita la utilidad actual. En B, D40 tiene **23 VP, 47 FP y 174 FN** de 197 instancias (recall 11,68 %); D20 tiene **65 VP, 277 FP y 96 FN** (precisión 19,01 %). La métrica global oculta estas diferencias. El reducido tamaño mediano de las cajas D40 y el desbalance de clases ayudan a interpretar este resultado, aunque no prueban una causa única. Las diferencias pequeñas de mAP se interpretan descriptivamente porque las corridas comparten semilla y no se estimó incertidumbre para esa métrica.
 
@@ -196,7 +214,7 @@ El monitoreo operativo se centra en tasa de alertas, distribución de confianza,
 
 ## 7. Explicabilidad, ética y riesgos
 
-Las cajas dibujadas, la clase y la confianza ofrecen una explicación visual básica de **dónde** detectó el modelo. No explican qué rasgos internos causaron la predicción. El repositorio revisado no contiene Grad-CAM, SHAP ni un análisis de atención, por lo que no se atribuyen hallazgos a esas técnicas. La revisión visual de cajas permite examinar errores sobre sombras, marcas viales y reparaciones previas sin atribuir al modelo una explicación causal interna.
+Las superposiciones de cajas, clase y confianza son la herramienta de **explicación visual aplicada** en la interfaz: muestran dónde se propuso cada daño y con qué puntuación. En `ca9.png` permiten ubicar la marca D00 sobre una grieta visible; en otra imagen exponen la ambigüedad entre grieta, junta y reparación. No explican qué rasgos internos causaron la predicción. El sistema no aplica Grad-CAM, SHAP ni análisis de atención, de modo que las superposiciones no deben interpretarse como atribuciones causales.
 
 El principal riesgo técnico es la transferencia entre dominios. Las métricas del dominio Czech no cuantifican la precisión en calles de Guatemala, aunque la aplicación se probó con imágenes guatemaltecas. Las condiciones de pavimento, iluminación, cámara y zona pueden alterar las predicciones. Las falsas alarmas consumen tiempo de revisión y las omisiones pueden retrasar una inspección de campo.
 
@@ -208,13 +226,13 @@ Los resultados confirman un flujo local que produce evidencia visual, un test se
 
 El límite práctico más importante es el **recall operativo de 30,54 %** de B y, en particular, el **11,68 % para D40**. Por ello, RoadGuard puede servir para proponer alertas que una persona confirme, pero no para filtrar automáticamente todos los tramos sin daño ni para garantizar que no se omitieron baches. En video, el conteo por fotograma infla el número de alertas frente a incidentes físicos únicos; la función de valor debe recalibrarse después de consolidar eventos temporales.
 
-La diferencia entre validación y prueba, especialmente en E, muestra que aumentar capacidad o tiempo de entrenamiento no aseguró transferencia al dominio Czech. En el escenario de valor, el punto de rendimientos decrecientes depende del costo de entrenamiento, inferencia y revisión frente a las omisiones evitadas. La comparación A–E favorece a B en el costo ilustrativo por lote, aunque las mejoras técnicas y monetarias son pequeñas. Las pruebas con imágenes de Guatemala muestran la ejecución de la aplicación fuera del dataset de evaluación; el informe no les atribuye una tasa de acierto ni un retorno financiero.
+La diferencia entre validación y prueba, especialmente en E, muestra que aumentar capacidad o tiempo de entrenamiento no aseguró transferencia al dominio Czech. En el escenario de valor, el punto de rendimientos decrecientes depende del costo de entrenamiento, inferencia y revisión frente a las omisiones evitadas. La comparación A–E favorece a B en el costo ilustrativo por lote, aunque las mejoras técnicas y monetarias son pequeñas. Las pruebas con imágenes de Guatemala muestran la ejecución de la aplicación fuera del dataset de evaluación; el informe no les atribuye una tasa de acierto ni un retorno financiero. Como evolución del sistema, la consolidación temporal de alertas, la revisión de ejemplos D40 y la evaluación separada por condiciones de captura permitirían acercar el conteo de cajas a incidencias que un inspector pueda gestionar.
 
 ## 9. Repositorio y reproducción
 
 Código y reportes: [https://github.com/tsc221645/roadguard](https://github.com/tsc221645/roadguard). Los resultados cuantitativos proceden de `data/manifests/rdd_inventory.summary.json`, `data/reports/eda_rdd2022/eda.json`, `data/processed/rdd2022/manifests/split_report.json`, `artifacts/runs/model_*/args.yaml` y `results.csv`, `artifacts/evaluations/model_*_test/metrics.json` y `operational.json`, y `artifacts/evaluations/value_scenario.json`. Los reportes y checkpoints están versionados; las imágenes originales y procesadas del conjunto de aproximadamente 15 GB se conservan localmente y no se suben a Git. La reproducción desde imágenes utiliza RDD2022 y el proceso de preparación implementado en el repositorio. Las rutas absolutas `D:\roadguard` registran el equipo de las corridas originales.
 
-Las seis figuras se guardan en `graficas/`, junto al Markdown. Se generaron a partir de los JSON y CSV de los experimentos.
+Las siete figuras se guardan en `graficas/`, junto al Markdown. Se generaron a partir de los JSON y CSV de los experimentos.
 
 ## Referencias
 
