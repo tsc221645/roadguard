@@ -10,11 +10,11 @@
 
 ## Resumen
 
-RoadGuard AI es un prototipo académico local que detecta grietas longitudinales (D00), transversales (D10), tipo piel de cocodrilo (D20) y baches o deterioros agrupados en D40 a partir de imágenes y videos. Se ajustaron cinco versiones de YOLO11 con datos RDD2022 y se evaluaron sobre 1 072 imágenes de prueba del dominio Czech. A 640 píxeles, el modelo B alcanzó mAP@0,50 de 21,91 % y mAP@0,50:0,95 de 7,54 %. Con confianza 0,10 e IoU 0,50 detectó 533 de 1 745 daños etiquetados (recall operativo 30,54 %) y generó 1 342 alertas, de las cuales 809 fueron falsas positivas. Frente a A evitó cuatro omisiones adicionales y produjo seis alertas más. Con costos **supuestos** de Q100 por omisión y Q5 por alerta, el costo proxy fue Q127 910 para B y Q128 280 para A: Q370 menos en el lote de prueba. El intervalo bootstrap pareado del ahorro (95 %, Q−2 075 a Q2 795) incluye cero. La mejora económica, por tanto, no está demostrada con precisión suficiente, y la tasa de omisión impide proponer el sistema como sustituto de una inspección humana. En la aplicación se completaron 16 análisis sobre 8 imágenes de Guatemala y 2 videos distintos; son pruebas de funcionamiento sin etiquetas manuales para calcular exactitud.
+RoadGuard AI es un prototipo académico local que detecta grietas longitudinales (D00), transversales (D10), tipo piel de cocodrilo (D20) y baches o deterioros agrupados en D40 a partir de imágenes y videos. Se ajustaron cinco versiones de YOLO11 con datos RDD2022 y se evaluaron sobre 1 072 imágenes de prueba del dominio Czech. A 640 píxeles, el modelo B alcanzó mAP@0,50 de 21,91 % y mAP@0,50:0,95 de 7,54 %. Con confianza 0,10 e IoU 0,50 detectó 533 de 1 745 daños etiquetados (recall operativo 30,54 %) y generó 1 342 alertas, de las cuales 809 fueron falsas positivas. Frente a A evitó cuatro omisiones adicionales y produjo seis alertas más. Con costos **supuestos** de Q100 por omisión y Q5 por alerta, el costo proxy fue Q127 910 para B y Q128 280 para A: Q370 menos en el lote de prueba. El intervalo bootstrap pareado del ahorro (95 %, Q−2 075 a Q2 795) incluye cero. Una evaluación exploratoria adicional en validación encontró que 0,05, entre los umbrales probados, minimiza ese costo supuesto; la aplicación sigue usando 0,10, seleccionado por F1. La mejora económica no está demostrada con precisión suficiente, y la tasa de omisión impide proponer el sistema como sustituto de una inspección humana. El recuento más reciente de la aplicación registra 18 análisis completados sobre 10 imágenes presentadas por el equipo como material de Guatemala y 2 videos distintos, sin etiquetas manuales para calcular exactitud.
 
 ## 1. Contexto de negocio y problema
 
-El usuario previsto es un equipo municipal, concesionario o contratista que inspecciona calles mediante recorridos grabados. En un flujo manual, una persona ve el material, identifica defectos, registra evidencia y decide qué segmentos necesitan revisión de campo. RoadGuard propone que la persona examine primero las detecciones sugeridas por el modelo. La salida es apoyo para priorizar una inspección, no un diagnóstico estructural, una estimación de profundidad ni una orden automática de reparación.
+El usuario previsto en el escenario del MVP es un inspector vial, un operador de captura y un supervisor municipal **simulados**. En un flujo manual, una persona ve el material, identifica defectos, registra evidencia y decide qué segmentos necesitan revisión de campo. RoadGuard propone que la persona examine primero las detecciones sugeridas por el modelo. La salida es apoyo para priorizar una inspección, no un diagnóstico estructural, una estimación de profundidad ni una orden automática de reparación. El estudio no atribuye sus costos ilustrativos a una municipalidad participante.
 
 La unidad de decisión del prototipo es una **detección visual por imagen o fotograma**. Una misma grieta puede aparecer en varios fotogramas y generar varias alertas. Por ello, el conteo bruto expresa alertas por imagen, no daños físicos independientes. El análisis económico de este informe utiliza esa misma unidad de conteo.
 
@@ -70,7 +70,7 @@ La función implementada asigna un costo proxy por lote:
 C = c_{omisión}\,FN + c_{revisión}\,(VP+FP).
 \]
 
-Los coeficientes predeterminados de `ml/value_analysis.py` son **Q100 por FN** y **Q5 por alerta revisada**. Q5 equivale en el escenario a dos minutos de revisión a Q150/hora; tanto el tiempo como la tarifa son hipotéticos. Q100 tampoco procede de un estudio de tiempos, contrato o presupuesto de una entidad. El modelo no distingue gravedad o clase del daño. La función presentada considera omisiones y revisiones por caja; captura, cómputo, almacenamiento y despliegue quedan fuera de este escenario numérico.
+Los coeficientes predeterminados de `ml/value_analysis.py` son **Q100 por FN** y **Q5 por alerta revisada**. Q5 equivale en el escenario a dos minutos de revisión a Q150/hora; tanto el tiempo como la tarifa son hipotéticos. Q100 tampoco procede de un estudio de tiempos, contrato o presupuesto de una entidad. El modelo no distingue gravedad o clase del daño. El término Q5 se aplica una vez a **toda** alerta, sea VP o FP. La función presentada considera omisiones y revisiones por caja; captura, cómputo, almacenamiento y despliegue quedan fuera de este escenario numérico porque sus importes no fueron medidos, no porque su costo sea cero.
 
 ### 3.2 Resultados económicos ilustrativos
 
@@ -92,19 +92,51 @@ El paso de A a B evita **cuatro FN**, que en el supuesto valen Q400, y añade **
 
 ### 3.3 Sensibilidad y elección de umbral
 
-Si el costo por FN cambia en ±20 % o ±50 % y Q5 por revisión se mantiene fijo, el ahorro bruto B frente a A es Q170, Q290, Q370, Q450 y Q570 para Q50, Q80, Q100, Q120 y Q150 por omisión, respectivamente. La ventaja puntual se mantiene pequeña y la incertidumbre estadística del caso base sigue incluyendo una posible pérdida. El punto de equilibrio entre A y B, con Q5 por alerta, es **Q7,50 por omisión**: cuatro omisiones evitadas compensarían exactamente seis revisiones adicionales. Ese punto solo describe el escenario algebraico y no valida sus precios.
+La sensibilidad cambia un costo a la vez y mantiene fijo el otro. La ventaja puntual se mantiene pequeña y la incertidumbre estadística del caso base sigue incluyendo una posible pérdida.
+
+| Variación del supuesto | Ahorro B−A si cambia Q100/FN | Ahorro B−A si cambia Q5/alerta |
+|---|---:|---:|
+| −50 % | Q170 | Q385 |
+| −20 % | Q290 | Q376 |
+| Base | Q370 | Q370 |
+| +20 % | Q450 | Q364 |
+| +50 % | Q570 | Q355 |
+
+El punto de equilibrio entre A y B, con Q5 por alerta, es **Q7,50 por omisión**: cuatro omisiones evitadas compensarían exactamente seis revisiones adicionales. Ese punto solo describe el escenario algebraico y no valida sus precios.
 
 ![Sensibilidad del ahorro](graficas/05_sensibilidad_valor.png)
 
 *Figura 3. Ahorro puntual al variar el costo supuesto de omisión. La barra vertical corresponde al intervalo bootstrap solo en el escenario Q100.*
 
+### 3.4 Curva de valor por umbral en validación
+
+Una evaluación exploratoria adicional comparó A y B en las **mismas 1 919 imágenes de validación**, con **3 068 cajas etiquetadas**, resolución de 640 px, emparejamiento uno a uno por clase e IoU ≥ 0,50. Las predicciones se obtuvieron con confianza mínima 0,05 y luego se filtraron para cada umbral. Los conteos se comunicaron como salida de terminal y se transcriben aquí; no son los promedios agregados de `thresholds.json` ni un nuevo test independiente.
+
+| Umbral | FN A | Alertas A | Costo A (Q) | FN B | Alertas B | Costo B (Q) |
+|---:|---:|---:|---:|---:|---:|---:|
+| **0,05** | 1 413 | 5 653 | **169 565** | 1 368 | 5 920 | **166 400** |
+| 0,10 | 1 690 | 3 432 | 186 160 | 1 597 | 3 684 | 178 120 |
+| 0,15 | 1 852 | 2 520 | 197 800 | 1 778 | 2 736 | 191 480 |
+| 0,20 | 2 008 | 1 968 | 210 640 | 1 941 | 2 120 | 204 700 |
+| 0,30 | 2 283 | 1 268 | 234 640 | 2 229 | 1 355 | 229 675 |
+| 0,40 | 2 481 | 828 | 252 240 | 2 476 | 847 | 251 835 |
+| 0,50 | 2 699 | 475 | 272 275 | 2 754 | 411 | 277 455 |
+| 0,60 | 2 904 | 213 | 291 465 | 2 956 | 137 | 296 285 |
+| 0,70 | 3 020 | 63 | 302 315 | 3 049 | 24 | 305 020 |
+
+Para ambos modelos, **0,05 es el umbral de menor costo entre los nueve evaluados** bajo Q100/Q5. Frente a 0,10, B reduce el costo ilustrativo de validación en **Q11 720**, a cambio de **2 236 alertas adicionales** en ese lote. El volumen de revisión cambia de 3 684 a 5 920 alertas, un aumento de **60,7 %**. La selección por F1 agregado había favorecido 0,10: ambos criterios responden a objetivos diferentes. El mínimo de la tabla no demuestra un óptimo continuo ni un beneficio municipal, y no cambia retrospectivamente los resultados del test a 0,10 ni la configuración actual de la aplicación.
+
+![Costo ilustrativo por umbral en validación](graficas/08_costo_por_umbral_validacion.png)
+
+*Figura 4. Curva de costo para A y B sobre validación. Cada punto usa cuentas de cajas y alertas a un umbral; los importes Q100/Q5 son supuestos.*
+
 La relación entre calidad técnica y costo también se observa al comparar las cinco iteraciones al mismo umbral. De C a B, el recall operativo sube de 26,48 % a 30,54 % y el costo ilustrativo baja de Q134 360 a Q127 910 por lote. La figura siguiente es una **curva discreta entre modelos**, no una curva de umbral ni una estimación causal aislada del recall: también cambian las falsas alarmas y la arquitectura.
 
 ![Recall operativo y costo por iteración](graficas/07_recall_y_valor.png)
 
-*Figura 4. Relación observada entre recall y costo en A–E, con confianza 0,10 y supuestos Q100/Q5.*
+*Figura 5. Relación observada entre recall y costo en A–E, con confianza 0,10 y supuestos Q100/Q5.*
 
-Los barridos existentes de A y B probaron umbrales 0,10–0,70 en validación y eligieron **0,10 por F1**, no por costo. La elección documentada responde a F1, mientras que la función de costo se aplica a las cuentas operativas del umbral seleccionado. La consulta del test durante las iteraciones A–E limita su independencia como evaluación confirmatoria.
+Los barridos previos de A y B probaron umbrales 0,10–0,70 en validación y eligieron **0,10 por F1**, no por costo. La evaluación adicional amplió el rango hasta 0,05 y permite una selección ilustrativa según la función de valor. La consulta del test durante las iteraciones A–E limita su independencia como evaluación confirmatoria.
 
 ## 4. Metodología de desarrollo
 
@@ -146,15 +178,15 @@ Los registros de la última época también permiten comparar las pérdidas dura
 
 La pérdida de clasificación en validación supera a la de entrenamiento en todas las corridas. Junto con la brecha entre validación y test, esta diferencia motiva cautela sobre generalización; no permite identificar por sí sola sobreajuste, porque las particiones provienen de dominios distintos.
 
-En test, B tiene el mAP@0,50 y mAP@0,50:0,95 más altos de las cinco corridas a 640 px, pero las diferencias frente a A son **0,49** y **0,15 puntos porcentuales**, respectivamente. E tiene mayor precisión de Ultralytics que B (33,93 % frente a 32,36 %) y un F1 descriptivo calculado de sus medias P/R de **31,45 %** frente a **30,84 %**; no equivale al F1 operativo de cajas a umbral fijo. E logra un mAP de validación superior al resto al final de su entrenamiento, sin trasladar esa ventaja a Czech. Esto es consistente con un cambio de dominio o ajuste a validación, pero no identifica por sí solo la causa. D exigió 92,2 minutos de ajuste **además** de los 125,0 minutos de B, sin superar a B en prueba a 640 px.
+En test, B tiene el mAP@0,50 y mAP@0,50:0,95 más altos de las cinco corridas a 640 px, pero las diferencias frente a A son **0,49** y **0,15 puntos porcentuales**, respectivamente. E tiene mayor precisión de Ultralytics que B (33,93 % frente a 32,36 %) y un F1 descriptivo calculado de sus medias P/R de **31,45 %** frente a **30,84 %**; no equivale al F1 operativo de cajas a umbral fijo. E logra un mAP de validación superior al resto al final de su entrenamiento, sin trasladar esa ventaja a Czech. Esto es consistente con un cambio de dominio o ajuste a validación, pero no identifica por sí solo la causa. D exigió 92,2 minutos de ajuste **además** de los 125,0 minutos de B, sin superar a B en prueba a 640 px. Frente a A, B registró **66,76 s más** de entrenamiento y **0,88 s menos** de tiempo de pared en la inferencia del lote de test; esos tiempos exploratorios no equivalen a una diferencia monetaria de cómputo.
 
 ![mAP de los cinco modelos](graficas/02_map_modelos.png)
 
-*Figura 5. Métricas de prueba de los mejores checkpoints; comparación homogénea a 640 px.*
+*Figura 6. Métricas de prueba de los mejores checkpoints; comparación homogénea a 640 px.*
 
 ![Curvas de validación](graficas/03_curvas_validacion.png)
 
-*Figura 6. mAP@0,50 durante las épocas registradas. Las curvas son de validación; el test se evaluó aparte.*
+*Figura 7. mAP@0,50 durante las épocas registradas. Las curvas son de validación; el test se evaluó aparte.*
 
 En los CSV, el **máximo por época** de mAP@0,50 en validación fue 32,38 % (A), 32,20 % (B), 26,17 % (C), 33,72 % (D) y 36,18 % (E). Estos máximos no necesariamente ocurrieron en la misma época que el máximo de mAP@0,50:0,95 ni representan por sí solos la evaluación del checkpoint final.
 
@@ -170,7 +202,7 @@ En los CSV, el **máximo por época** de mAP@0,50 en validación fue 32,38 % (A)
 
 ![mAP por clase](graficas/06_map_por_clase.png)
 
-*Figura 7. Desempeño por clase: una métrica global puede ocultar la dificultad para detectar baches.*
+*Figura 8. Desempeño por clase: una métrica global puede ocultar la dificultad para detectar baches.*
 
 El error por clase limita la utilidad actual. En B, D40 tiene **23 VP, 47 FP y 174 FN** de 197 instancias (recall 11,68 %); D20 tiene **65 VP, 277 FP y 96 FN** (precisión 19,01 %). La métrica global oculta estas diferencias. El reducido tamaño mediano de las cajas D40 y el desbalance de clases ayudan a interpretar este resultado, aunque no prueban una causa única. Las diferencias pequeñas de mAP se interpretan descriptivamente porque las corridas comparten semilla y no se estimó incertidumbre para esa métrica.
 
@@ -198,11 +230,11 @@ Los reportes operativos registran para B **16,14 s** de tiempo total sobre 1 072
 
 ### 6.1 Pruebas de funcionamiento con archivos cargados localmente
 
-El recuento de archivos cargados y reportes generados en el equipo de pruebas registra **16 análisis completados: 13 de imágenes y 3 de videos**. Al descontar repeticiones, corresponden a **8 imágenes de Guatemala, según confirmación del equipo, y 2 videos distintos**. Todos los reportes completados usaron el modelo B. El umbral habitual fue 0,10; una imagen también se procesó con 0,05 y 0,80. El equipo disponía de una NVIDIA GeForce RTX 3050 de 8 GB. Las imágenes muestran en algunos casos marcas de Google Street View, pero los archivos no conservan URL ni coordenadas. La procedencia geográfica de los dos videos no se estableció; `progress_smoke.mp4` fue una prueba técnica.
+El recuento más reciente de archivos cargados y reportes generados en el equipo de pruebas registra **18 análisis completados: 15 de imágenes y 3 de videos**. Al descontar repeticiones, corresponden a **10 imágenes presentadas por el equipo como material de Guatemala y 2 videos distintos**. Todos los reportes completados usaron el modelo B. El umbral habitual fue 0,10; una imagen también se procesó con 0,05 y 0,80. El equipo disponía de una NVIDIA GeForce RTX 3050 de 8 GB. Las imágenes muestran en algunos casos marcas de Google Street View, pero los archivos no conservan URL ni coordenadas. La procedencia geográfica de los dos videos no se estableció; `progress_smoke.mp4` fue una prueba técnica.
 
 | Archivo o conjunto | Resultado registrado | Interpretación |
 |---|---|---|
-| 8 imágenes distintas, umbral 0,10 | 13 detecciones: D00 4, D10 2, D20 2 y D40 5 | Propuestas del modelo, no aciertos confirmados |
+| Subconjunto de 8 imágenes distintas, umbral 0,10 | 13 detecciones: D00 4, D10 2, D20 2 y D40 5 | Conteo de una revisión anterior; no incluye las dos imágenes agregadas después |
 | `roadguardvs2.mp4` | 1 198 detecciones en 1 216 fotogramas: D00 100, D10 1, D20 952 y D40 145 | Conteo por fotograma; no son 1 198 daños únicos |
 | `progress_smoke.mp4` | 20 detecciones D00 en 20 fotogramas; se procesó dos veces | Prueba técnica repetida |
 
@@ -232,7 +264,7 @@ La diferencia entre validación y prueba, especialmente en E, muestra que aument
 
 Código y reportes: [https://github.com/tsc221645/roadguard](https://github.com/tsc221645/roadguard). Los resultados cuantitativos proceden de `data/manifests/rdd_inventory.summary.json`, `data/reports/eda_rdd2022/eda.json`, `data/processed/rdd2022/manifests/split_report.json`, `artifacts/runs/model_*/args.yaml` y `results.csv`, `artifacts/evaluations/model_*_test/metrics.json` y `operational.json`, y `artifacts/evaluations/value_scenario.json`. Los reportes y checkpoints están versionados; las imágenes originales y procesadas del conjunto de aproximadamente 15 GB se conservan localmente y no se suben a Git. La reproducción desde imágenes utiliza RDD2022 y el proceso de preparación implementado en el repositorio. Las rutas absolutas `D:\roadguard` registran el equipo de las corridas originales.
 
-Las siete figuras se guardan en `graficas/`, junto al Markdown. Se generaron a partir de los JSON y CSV de los experimentos.
+Las ocho figuras se guardan en `graficas/`, junto al Markdown. Las primeras siete se generaron a partir de los JSON y CSV del repositorio; la curva de umbral transcribe la nueva evaluación exploratoria comunicada por el equipo.
 
 ## Referencias
 
