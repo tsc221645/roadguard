@@ -2,6 +2,7 @@
 docs/
 *.md
 !README.md
+!REPORTE_METRICAS.md
 *.pdf
 *.docx
 *.pptx
@@ -54,6 +55,8 @@ artifacts/predictions/
 *.safetensors
 
 # Capturas y bases de datos locales
+*.heic
+*.heif
 *.mp4
 *.mov
 *.avi

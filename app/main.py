@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from datetime import timedelta
 from queue import Queue
 from threading import Lock, Thread
 from typing import Any
@@ -14,6 +15,7 @@ from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
+from app.location import image_location, video_metadata, read_gpx, gpx_location, parse_time, heic_to_png, HEIC_AVAILABLE
 
 PROJECT = Path(__file__).resolve().parents[1]
 STATIC_DIR = PROJECT / "app" / "static"
@@ -22,12 +24,13 @@ UPLOADS_DIR = ARTIFACTS_DIR / "uploads"
 RESULTS_DIR = ARTIFACTS_DIR / "results"
 MODEL_PATH = PROJECT / "artifacts" / "runs" / "model_b" / "weights" / "best.pt"
 MAX_UPLOAD_BYTES = 500 * 1024 * 1024
-ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov", ".avi", ".mkv"}
+MAX_GPX_BYTES = 10 * 1024 * 1024
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".mp4", ".mov", ".avi", ".mkv"}
 
 app = FastAPI(title="RoadGuard API", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _model: YOLO | None = None
-_queue: Queue[tuple[str, Path, Path, float, str, int, bool]] = Queue()
+_queue: Queue[tuple] = Queue()
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = Lock()
 _worker: Thread | None = None
@@ -56,15 +59,35 @@ def video_frame_count(path: Path) -> int | None:
         capture.release()
 
 
+def video_fps(path: Path) -> float | None:
+    capture = cv2.VideoCapture(str(path))
+    try:
+        fps = capture.get(cv2.CAP_PROP_FPS) if capture.isOpened() else 0
+        return fps if 0 < fps < 1000 else None
+    finally:
+        capture.release()
+
+
 def process_job(job_id: str, input_path: Path, output_dir: Path, confidence: float,
-                filename: str, size: int, is_video: bool) -> None:
+                filename: str, size: int, is_video: bool, gpx_path: Path | None,
+                recording_start: str | None) -> None:
     try:
         model = get_model()
+        inference_path = input_path
+        if input_path.suffix.lower() in {".heic", ".heif"}:
+            inference_path = input_path.with_name("inference.png")
+            heic_to_png(input_path, inference_path)
         total_frames = video_frame_count(input_path) if is_video else 1
+        gps, embedded_start = video_metadata(input_path) if is_video else (image_location(input_path), None)
+        start = parse_time(recording_start) or embedded_start
+        fps = video_fps(input_path) if is_video else None
+        track = read_gpx(gpx_path) if gpx_path else []
+        if gpx_path and not track:
+            raise ValueError("El GPX no contiene puntos válidos con fecha y coordenadas.")
         update_job(job_id, status="processing", total_frames=total_frames)
         summary = {name: 0 for name in model.names.values()}
         items = []
-        results = model.predict(source=str(input_path), conf=confidence, imgsz=640,
+        results = model.predict(source=str(inference_path), conf=confidence, imgsz=640,
                                 device=os.getenv("ROADGUARD_DEVICE", "0"),
                                 project=str(output_dir), name="prediction", exist_ok=True,
                                 save=True, stream=True, verbose=False)
@@ -81,14 +104,24 @@ def process_job(job_id: str, input_path: Path, output_dir: Path, confidence: flo
                     rows.append({"class_id": class_id, "class_name": name,
                                  "confidence": round(float(score), 5),
                                  "xyxy": [round(float(value), 2) for value in coordinates]})
+            frame_location = gps
+            if is_video and track and start and fps:
+                frame_location = gpx_location(track, start + timedelta(seconds=(frame_index - 1) / fps)) or gps
             items.append({"source": Path(result.path).name, "frame": frame_index,
-                          "detections": rows})
+                          "detections": rows, "location": frame_location})
             update_job(job_id, processed_frames=frame_index,
                        total_detections=sum(summary.values()))
 
+        located = sum(item["location"] is not None for item in items)
+        representative = next((item["location"] for item in items if item["location"]), None)
+        location_status = ("available" if located else
+                           "gpx_missing_time" if track and not start else
+                           "gpx_missing_fps" if track and not fps else "unavailable")
         report = {"model": str(MODEL_PATH), "confidence_threshold": confidence,
                   "total_detections": sum(summary.values()),
                   "detections_by_class": summary, "items": items,
+                  "location": representative, "location_status": location_status,
+                  "located_frames": located, "recorded_at": start.isoformat() if start else None,
                   "job_id": job_id, "filename": filename, "bytes": size}
         rendered_dir = output_dir / "prediction"
         rendered = next((path for path in rendered_dir.iterdir() if path.is_file()), None)
@@ -133,10 +166,19 @@ def health() -> dict[str, Any]:
 
 
 @app.post("/api/predict")
-async def predict(file: UploadFile = File(...), confidence: float = Query(0.10, gt=0.0, lt=1.0)) -> dict[str, Any]:
+async def predict(file: UploadFile = File(...), track: UploadFile | None = File(None),
+                  confidence: float = Query(0.10, gt=0.0, lt=1.0),
+                  recorded_at: str | None = Query(None)) -> dict[str, Any]:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Formato no soportado. Usa JPG, PNG, MP4, MOV, AVI o MKV.")
+        raise HTTPException(status_code=400, detail="Formato no soportado. Usa JPG, PNG, WebP, HEIC, HEIF, MP4, MOV, AVI o MKV.")
+    if suffix in {".heic", ".heif"} and not HEIC_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Falta pillow-heif en el entorno. Instálalo en dm1 para procesar HEIC.")
+    is_video = suffix in {".mp4", ".mov", ".avi", ".mkv"}
+    if track and (not is_video or Path(track.filename or "").suffix.lower() != ".gpx"):
+        raise HTTPException(status_code=400, detail="El archivo GPX solo se acepta con videos.")
+    if recorded_at and (not is_video or parse_time(recorded_at) is None):
+        raise HTTPException(status_code=400, detail="La fecha de grabación debe incluir zona horaria (ISO 8601).")
     job_id = uuid.uuid4().hex[:12]
     input_dir, output_dir = UPLOADS_DIR / job_id, RESULTS_DIR / job_id
     input_dir.mkdir(parents=True, exist_ok=True)
@@ -150,15 +192,29 @@ async def predict(file: UploadFile = File(...), confidence: float = Query(0.10, 
                 if size > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=413, detail="El archivo supera el límite de 500 MB.")
                 destination.write(chunk)
+        gpx_path = None
+        if track:
+            gpx_path = input_dir / "track.gpx"
+            track_size = 0
+            with gpx_path.open("wb") as destination:
+                while chunk := await track.read(1024 * 1024):
+                    track_size += len(chunk)
+                    if track_size > MAX_GPX_BYTES:
+                        raise HTTPException(status_code=413, detail="El GPX supera el límite de 10 MB.")
+                    destination.write(chunk)
+            try:
+                if not read_gpx(gpx_path):
+                    raise ValueError()
+            except Exception as error:
+                raise HTTPException(status_code=400, detail="GPX inválido o sin puntos con fecha UTC.") from error
         get_model()
-        is_video = suffix in {".mp4", ".mov", ".avi", ".mkv"}
         job = {"job_id": job_id, "status": "queued", "filename": file.filename,
                "processed_frames": 0, "total_frames": None, "total_detections": 0}
         with _jobs_lock:
             _jobs[job_id] = job
         ensure_worker()
         _queue.put((job_id, input_path, output_dir, confidence,
-                    file.filename or input_path.name, size, is_video))
+                    file.filename or input_path.name, size, is_video, gpx_path, recorded_at))
         return job
     except HTTPException:
         raise
@@ -166,6 +222,8 @@ async def predict(file: UploadFile = File(...), confidence: float = Query(0.10, 
         raise HTTPException(status_code=500, detail=f"Error durante la inferencia: {error}") from error
     finally:
         await file.close()
+        if track:
+            await track.close()
 
 
 def job_path(job_id: str) -> Path:

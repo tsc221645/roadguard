@@ -159,6 +159,10 @@ Luego abre `http://127.0.0.1:8000`. Los archivos generados se guardan en `artifa
 
 La interfaz muestra el avance de la carga y, durante la inferencia, los fotogramas procesados y las detecciones encontradas. Se puede recargar la pestaña y recuperar el progreso mientras el servidor siga activo. Los trabajos se procesan de uno en uno para compartir la GPU. Los resultados visuales se guardan en `artifacts/app/results/<job_id>/prediction` y el reporte en `artifacts/app/results/<job_id>/detections.json`. En videos, el conteo corresponde a detecciones por fotograma; un mismo daño puede aparecer varias veces. Si el navegador no reproduce el video generado, descárgalo y ábrelo con un reproductor local.
 
+### Ubicación aproximada
+
+En imágenes JPG, PNG, WebP, HEIC o HEIF, la app lee coordenadas GPS EXIF si están presentes. HEIC/HEIF requiere `pillow-heif==0.22.0` en el entorno `dm1`; el original se conserva y solo se convierte una copia temporal a PNG para el detector. Al pulsar **Mostrar mapa con pin**, carga un mapa integrado centrado en la ubicación aproximada de la cámara. En videos, lee la ubicación y fecha incorporadas cuando `ffprobe` está disponible. Puedes adjuntar un GPX con puntos fechados y, si el video perdió su fecha de creación, indicar la hora local de inicio de grabación. El GPX se sincroniza por fotograma usando la velocidad del video; solo se asignan coordenadas cuando dos puntos contiguos están separados por 30 segundos o menos. El JSON incluye `location` por fotograma, `location_status` y `located_frames`. La interfaz muestra una coordenada de referencia y un enlace a OpenStreetMap. Al pulsar el botón del mapa o abrir el enlace, el navegador comparte esa coordenada con OpenStreetMap; se requiere conexión a Internet. Las coordenadas indican la posición aproximada de la cámara, no la posición exacta del daño ni toda la calle. Si no hay GPS o no se puede sincronizar el GPX, aparece «Ubicación no disponible». Los archivos cargados y GPX quedan en `artifacts/app/uploads`, que está excluido de Git.
+
 Las clases mostradas por la interfaz son:
 
 - `D00`: grieta longitudinal.

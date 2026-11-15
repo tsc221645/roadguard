@@ -15,6 +15,10 @@ const resultsCard = document.querySelector('#results-card');
 const summaryGrid = document.querySelector('#summary-grid');
 const mediaWrap = document.querySelector('#media-wrap');
 const reportLink = document.querySelector('#download-report');
+const trackInput = document.querySelector('#track-input');
+const recordedAt = document.querySelector('#recorded-at');
+const locationFields = document.querySelector('#video-location-fields');
+const locationResult = document.querySelector('#location-result');
 let timer = null;
 
 confidence.addEventListener('input', () => {
@@ -36,6 +40,9 @@ dropzone.addEventListener('drop', event => {
 
 function showFile(file) {
   if (!file) return;
+  const isVideo = /\.(mp4|mov|avi|mkv)$/i.test(file.name);
+  locationFields.classList.toggle('hidden', !isVideo);
+  if (!isVideo) { trackInput.value = ''; recordedAt.value = ''; }
   fileName.textContent = `${file.name} · ${(file.size / 1048576).toFixed(2)} MB`;
   fileName.classList.remove('hidden');
 }
@@ -79,7 +86,9 @@ function updateProgress(title, note, percent, detail) {
 function upload(file) {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
-    request.open('POST', `/api/predict?confidence=${confidence.value}`);
+    const params = new URLSearchParams({ confidence: confidence.value });
+    if (recordedAt.value) params.set('recorded_at', new Date(recordedAt.value).toISOString());
+    request.open('POST', `/api/predict?${params}`);
     request.upload.addEventListener('progress', event => {
       if (event.lengthComputable) {
         const percent = Math.min(100, Math.round(event.loaded / event.total * 100));
@@ -97,7 +106,9 @@ function upload(file) {
       resolve(data);
     });
     request.addEventListener('error', () => reject(new Error('No se pudo conectar con RoadGuard.')));
-    const body = new FormData(); body.append('file', file); request.send(body);
+    const body = new FormData(); body.append('file', file);
+    if (trackInput.files[0]) body.append('track', trackInput.files[0]);
+    request.send(body);
   });
 }
 async function pollJob(jobId) {
@@ -158,6 +169,48 @@ function renderResults(data) {
   const summary = data.detections_by_class || {};
   summaryGrid.innerHTML = `<div class="summary-item total"><strong>${count}</strong><span>TOTAL</span></div>` +
     Object.entries(summary).map(([name, value]) => `<div class="summary-item"><strong>${Number(value)}</strong><span>${escapeHtml(CLASS_LABELS[name] || name)}<small> (${escapeHtml(name)})</small></span></div>`).join('');
+  locationResult.replaceChildren();
+  const title = document.createElement('strong');
+  title.textContent = data.location ? 'Ubicación aproximada de la cámara' : 'Ubicación no disponible';
+  locationResult.append(title);
+  const note = document.createElement('p');
+  if (data.location) {
+    const { latitude, longitude, source } = data.location;
+    const lat = Number(latitude), lon = Number(longitude);
+    note.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)} · ${source}`;
+    locationResult.append(note);
+    if (data.media_type === 'image' && Number.isFinite(lat) && Number.isFinite(lon) &&
+        Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+      const showMap = document.createElement('button');
+      showMap.type = 'button';
+      showMap.className = 'map-button';
+      showMap.textContent = 'Mostrar mapa con pin';
+      const privacy = document.createElement('small');
+      privacy.textContent = 'Al mostrar el mapa, el navegador enviará estas coordenadas a OpenStreetMap.';
+      locationResult.append(privacy, showMap);
+      showMap.addEventListener('click', () => {
+        const delta = 0.003;
+        const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(',');
+        const map = document.createElement('iframe');
+        map.className = 'location-map';
+        map.title = 'Mapa con pin en la ubicación aproximada de la cámara';
+        map.referrerPolicy = 'no-referrer';
+        map.src = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${lat},${lon}`)}`;
+        showMap.replaceWith(map);
+      }, { once: true });
+    }
+    const link = document.createElement('a');
+    link.href = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(latitude)}&mlon=${encodeURIComponent(longitude)}#map=17/${encodeURIComponent(latitude)}/${encodeURIComponent(longitude)}`;
+    link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.textContent = 'Ver en mapa ↗';
+    locationResult.append(link);
+    const caution = document.createElement('small');
+    caution.textContent = data.media_type === 'video' ? `Referencia de ${data.located_frames} fotogramas. El JSON contiene coordenadas por fotograma; son aproximadas y corresponden a la cámara.` : 'La coordenada es de la cámara, no necesariamente del daño.';
+    locationResult.append(caution);
+  } else {
+    note.textContent = data.location_status === 'gpx_missing_time' ? 'El GPX requiere la fecha y hora de inicio de grabación para sincronizarlo.' : data.location_status === 'gpx_missing_fps' ? 'No se pudo leer la velocidad de fotogramas para sincronizar el GPX.' : 'El archivo no contiene GPS utilizable. Para videos puedes añadir un GPX.';
+    locationResult.append(note);
+  }
   mediaWrap.replaceChildren();
   details.querySelector('.media-download')?.remove();
   const media = document.createElement(data.media_type === 'video' ? 'video' : 'img');
