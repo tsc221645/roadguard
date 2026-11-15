@@ -3,6 +3,7 @@ docs/
 *.md
 !README.md
 !REPORTE_METRICAS.md
+!Trabajo_escrito_RoadGuard.md
 *.pdf
 *.docx
 *.pptx
