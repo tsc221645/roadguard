@@ -2,6 +2,7 @@
 docs/
 *.md
 !README.md
+!Trabajo_escrito_RoadGuard.md
 *.pdf
 *.docx
 *.pptx
