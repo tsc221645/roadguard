@@ -1,0 +1,9 @@
+**
+!app/
+!app/**
+!artifacts/
+!artifacts/runs/
+!artifacts/runs/model_b/
+!artifacts/runs/model_b/weights/
+!artifacts/runs/model_b/weights/best.pt
+!requirements.app.lock.txt

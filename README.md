@@ -95,6 +95,26 @@ La GPU no es obligatoria para inferencia: sin CUDA, configura `$env:ROADGUARD_DE
 
 ## Ejecución en Windows
 
+### Docker (aplicación local)
+
+Con Docker Desktop abierto, desde la raíz del repositorio ejecuta:
+
+```powershell
+docker compose up --build -d
+```
+
+Abre `http://127.0.0.1:8000`. Esta opción usa CPU. Para usar una GPU NVIDIA con Docker Desktop, WSL 2 y controladores compatibles, ejecuta en su lugar:
+
+```powershell
+docker compose -f compose.yaml -f compose.gpu.yaml up --build -d
+```
+
+La primera construcción descarga PyTorch y puede tardar varios minutos. Docker solo incorpora la aplicación y `artifacts/runs/model_b/weights/best.pt`; no necesita las imágenes de RDD2022. Los análisis se conservan en el volumen de Compose `roadguard_results`, incluso después de `docker compose down`. Para ver el estado usa `docker compose ps`; para ver errores usa `docker compose logs -f roadguard`. Si se actualiza el código o el modelo, repite el comando con `--build`. Para detener la aplicación usa `docker compose down` (con las mismas opciones `-f` si se inició con GPU). No uses `down -v` si quieres conservar los análisis.
+
+La variante GPU exige que Docker Desktop pueda acceder a la GPU NVIDIA. Si no está configurado, usa la variante CPU. El puerto solo se publica en `127.0.0.1` para uso en este equipo.
+
+### Instalación con Conda
+
 Desde la raíz del repositorio en PowerShell, crea el entorno e instala PyTorch antes de `requirements.in`. El comando CUDA 12.6 corresponde a los binarios oficiales de PyTorch para Windows; requiere una GPU NVIDIA y un controlador compatible. `pillow-heif==0.22.0` ya está incluido en `requirements.in`.
 
 ```powershell

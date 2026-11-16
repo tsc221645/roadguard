@@ -1,0 +1,17 @@
+services:
+  roadguard:
+    build:
+      context: .
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ROADGUARD_DEVICE: cpu
+    volumes:
+      - roadguard_results:/app/artifacts/app
+    init: true
+    restart: unless-stopped
+
+volumes:
+  roadguard_results:

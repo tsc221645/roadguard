@@ -1,0 +1,8 @@
+services:
+  roadguard:
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    environment:
+      ROADGUARD_DEVICE: "0"
+    gpus: all
