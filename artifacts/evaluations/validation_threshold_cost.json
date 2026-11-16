@@ -1,0 +1,169 @@
+{
+  "split": "val",
+  "images": 1919,
+  "ground_truth_boxes": 3068,
+  "imgsz": 640,
+  "prediction_conf": 0.05,
+  "matching_iou": 0.5,
+  "cost_assumptions": {
+    "currency": "Q",
+    "missed_box": 100,
+    "review_alert": 5
+  },
+  "models": {
+    "a": {
+      "checkpoint": "artifacts/runs/model_a/weights/best.pt",
+      "rows": [
+        {
+          "threshold": 0.05,
+          "tp": 1655,
+          "fp": 3998,
+          "fn": 1413,
+          "alerts": 5653,
+          "cost_q": 169565
+        },
+        {
+          "threshold": 0.1,
+          "tp": 1378,
+          "fp": 2054,
+          "fn": 1690,
+          "alerts": 3432,
+          "cost_q": 186160
+        },
+        {
+          "threshold": 0.15,
+          "tp": 1216,
+          "fp": 1304,
+          "fn": 1852,
+          "alerts": 2520,
+          "cost_q": 197800
+        },
+        {
+          "threshold": 0.2,
+          "tp": 1060,
+          "fp": 908,
+          "fn": 2008,
+          "alerts": 1968,
+          "cost_q": 210640
+        },
+        {
+          "threshold": 0.3,
+          "tp": 785,
+          "fp": 483,
+          "fn": 2283,
+          "alerts": 1268,
+          "cost_q": 234640
+        },
+        {
+          "threshold": 0.4,
+          "tp": 587,
+          "fp": 241,
+          "fn": 2481,
+          "alerts": 828,
+          "cost_q": 252240
+        },
+        {
+          "threshold": 0.5,
+          "tp": 369,
+          "fp": 106,
+          "fn": 2699,
+          "alerts": 475,
+          "cost_q": 272275
+        },
+        {
+          "threshold": 0.6,
+          "tp": 164,
+          "fp": 49,
+          "fn": 2904,
+          "alerts": 213,
+          "cost_q": 291465
+        },
+        {
+          "threshold": 0.7,
+          "tp": 48,
+          "fp": 15,
+          "fn": 3020,
+          "alerts": 63,
+          "cost_q": 302315
+        }
+      ]
+    },
+    "b": {
+      "checkpoint": "artifacts/runs/model_b/weights/best.pt",
+      "rows": [
+        {
+          "threshold": 0.05,
+          "tp": 1700,
+          "fp": 4220,
+          "fn": 1368,
+          "alerts": 5920,
+          "cost_q": 166400
+        },
+        {
+          "threshold": 0.1,
+          "tp": 1471,
+          "fp": 2213,
+          "fn": 1597,
+          "alerts": 3684,
+          "cost_q": 178120
+        },
+        {
+          "threshold": 0.15,
+          "tp": 1290,
+          "fp": 1446,
+          "fn": 1778,
+          "alerts": 2736,
+          "cost_q": 191480
+        },
+        {
+          "threshold": 0.2,
+          "tp": 1127,
+          "fp": 993,
+          "fn": 1941,
+          "alerts": 2120,
+          "cost_q": 204700
+        },
+        {
+          "threshold": 0.3,
+          "tp": 839,
+          "fp": 516,
+          "fn": 2229,
+          "alerts": 1355,
+          "cost_q": 229675
+        },
+        {
+          "threshold": 0.4,
+          "tp": 592,
+          "fp": 255,
+          "fn": 2476,
+          "alerts": 847,
+          "cost_q": 251835
+        },
+        {
+          "threshold": 0.5,
+          "tp": 314,
+          "fp": 97,
+          "fn": 2754,
+          "alerts": 411,
+          "cost_q": 277455
+        },
+        {
+          "threshold": 0.6,
+          "tp": 112,
+          "fp": 25,
+          "fn": 2956,
+          "alerts": 137,
+          "cost_q": 296285
+        },
+        {
+          "threshold": 0.7,
+          "tp": 19,
+          "fp": 5,
+          "fn": 3049,
+          "alerts": 24,
+          "cost_q": 305020
+        }
+      ]
+    }
+  }
+}

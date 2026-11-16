@@ -1,54 +1,52 @@
 # RoadGuard AI
 
-RoadGuard AI es una plataforma de visión por computadora para detectar daños visibles en el pavimento a partir de video. El sistema combina un detector de objetos, evidencia visual y GPS aproximado para ayudar a priorizar inspecciones viales.
+RoadGuard AI es una plataforma de visión por computadora para detectar daños visibles en el pavimento a partir de imágenes y videos. El sistema combina un detector de objetos, evidencia visual y GPS aproximado para ayudar a priorizar inspecciones viales.
 
 ## Propósito
 
 Las inspecciones manuales de calles consumen tiempo y pueden producir registros difíciles de comparar. RoadGuard propone un flujo reproducible que convierte un recorrido en video en incidencias revisables, sin presentar las predicciones como certificaciones estructurales ni reemplazar la validación humana.
 
-El proyecto compara dos versiones ajustadas de un detector YOLO utilizando el mismo conjunto de prueba. Además de mAP, precision y recall, se analizarán falsas alarmas, daños omitidos, tiempo de revisión y costo esperado bajo supuestos explícitos.
+El proyecto compara cinco iteraciones de YOLO11 (A–E) sobre el mismo test. El modelo B es el predeterminado en la app. Se reportan mAP, precisión, recall, falsas alarmas, omisiones y un costo ilustrativo bajo supuestos explícitos; el tiempo de revisión humana no se midió.
 
 ## Objetivos
 
 - Detectar cuatro tipos de daño: D00, D10, D20 y D40.
 - Mantener conjuntos de entrenamiento, validación y prueba trazables, sin fugas entre grupos.
-- Procesar video con GPX cuando exista; si no hay GPS válido, conservar la incidencia sin inventar coordenadas.
-- Asociar cada detección con confianza, evidencia visual, instante del video y ubicación aproximada.
-- Comparar dos modelos bajo métricas técnicas y una función de valor económico.
-- Proporcionar una base reproducible para una futura aplicación local de revisión y priorización.
+- Procesar video con GPX cuando exista; si no hay GPS válido, dejar la ubicación como no disponible.
+- Asociar cada detección con confianza, evidencia visual, índice de fotograma y ubicación aproximada cuando exista.
+- Comparar cinco modelos bajo métricas técnicas y una función de valor económico.
+- Proporcionar una base reproducible para una interfaz local para revisar evidencia y descargar resultados.
 
 ## Casos de uso
 
 ### Inspección asistida
 
-Un operador carga un recorrido en video y revisa las detecciones propuestas por el modelo, confirmándolas o rechazándolas.
+Un operador carga un recorrido en video y examina las detecciones propuestas y descarga el reporte. La interfaz aún no registra confirmaciones o rechazos individuales.
 
 ### Priorización de mantenimiento
 
-Un supervisor consulta incidencias agrupadas por tipo de daño y ubicación aproximada para ordenar revisiones de campo.
+Un supervisor puede consultar el resumen por clase y la ubicación aproximada de la cámara cuando está disponible. La app no agrupa detecciones repetidas en incidencias únicas.
 
 ### Evaluación de modelos
 
-El equipo compara modelos A/B con el mismo test, revisa errores y observa cómo cambian el costo esperado y la carga de revisión.
+El equipo compara A–E con el mismo test, revisa errores y observa cómo cambian el costo esperado y la carga de revisión.
 
 ### Demostración sin GPS
 
-El sistema puede procesar video sin GPX. Las detecciones siguen disponibles con evidencia visual, pero su posición queda explícitamente como no disponible.
+El sistema puede procesar video sin GPX. Las detecciones siguen disponibles con evidencia visual; la ubicación queda como no disponible salvo que el video incluya GPS utilizable.
 
 ## Flujo del sistema
 
 ```text
-Video + GPX opcional
+Imagen o video + GPX opcional para video
         ↓
 Validación y extracción de frames
         ↓
 Detector YOLO ajustado
         ↓
-Consolidación temporal de detecciones
+Detecciones por imagen o fotograma; ubicación si existe
         ↓
-Incidencias con evidencia y GPS aproximado
-        ↓
-Revisión humana, métricas y exportación
+Evidencia anotada, resumen por clase y JSON descargable
 ```
 
 ## Datos y modelo
@@ -70,9 +68,9 @@ La separación por país/dominio favorece una evaluación conservadora de transf
 - EDA y revisión de integridad completados.
 - Splits congelados y validados mediante hashes.
 - Smoke test ejecutado en la RTX 3050.
-- Entrenamiento completo de los modelos A y B completado.
-- Evaluación A/B sobre el test congelado completada.
-- Selección de umbral, API y frontend: pendientes.
+- Entrenamiento A, B, D y E completado; C se detuvo tras 22 épocas.
+- Evaluación A–E sobre el test congelado completada.
+- Selección de umbral por F1, API e interfaz local: implementadas. El umbral económico 0.05 es exploratorio y no sustituye la configuración predeterminada 0.10.
 
 ## Requisitos mínimos
 
@@ -86,7 +84,7 @@ La separación por país/dominio favorece una evaluación conservadora de transf
 - Navegador moderno para la interfaz local.
 - El checkpoint `artifacts/runs/model_b/weights/best.pt`.
 
-La GPU no es obligatoria para inferencia, pero una GPU NVIDIA con al menos 4 GB de VRAM reduce considerablemente el tiempo de procesamiento. La RTX 3050 de 8 GB usada en desarrollo cumple los requisitos recomendados.
+La GPU no es obligatoria para inferencia: sin CUDA, configura `$env:ROADGUARD_DEVICE = "cpu"` antes de iniciar la app. Una GPU NVIDIA con al menos 4 GB de VRAM reduce considerablemente el tiempo de procesamiento. La RTX 3050 de 8 GB usada en desarrollo cumple los requisitos recomendados.
 
 ### Entrenamiento
 
@@ -97,12 +95,20 @@ La GPU no es obligatoria para inferencia, pero una GPU NVIDIA con al menos 4 GB 
 
 ## Ejecución en Windows
 
-Para el pipeline de datos se requiere Python 3.13 con las dependencias correspondientes. Para entrenamiento en la RTX 3050 se utiliza el entorno Conda `dm1`, que ya tiene PyTorch con CUDA y Ultralytics.
+Desde la raíz del repositorio en PowerShell, crea el entorno e instala PyTorch antes de `requirements.in`. El comando CUDA 12.6 corresponde a los binarios oficiales de PyTorch para Windows; requiere una GPU NVIDIA y un controlador compatible. `pillow-heif==0.22.0` ya está incluido en `requirements.in`.
 
-```bash
-source .venv/bin/activate
+```powershell
+conda create -n dm1 python=3.13 -y
+conda activate dm1
+$env:PYTHONNOUSERSITE = "1"
+python -m pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cu126
+python -m pip install -r requirements.in
+python -c "import torch, ultralytics, fastapi, pillow_heif; print('CUDA:', torch.cuda.is_available())"
 python scripts/check_environment.py --output artifacts/reports/environment_local.json
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Abre `http://127.0.0.1:8000`. Sin GPU NVIDIA, usa `python -m pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu` en lugar de la línea CUDA y configura `$env:ROADGUARD_DEVICE = "cpu"` antes de iniciar `uvicorn`. El checkpoint `artifacts/runs/model_b/weights/best.pt` debe estar disponible; la carga de imágenes originales del dataset no es necesaria para usar la app. [PyTorch documenta ambos índices de instalación](https://pytorch.org/get-started/previous-versions/).
 
 Entrenamiento reproducible:
 
@@ -120,9 +126,11 @@ python -m ml.inspect_rdd --root data/raw/RDD2022
 python -m ml.convert_voc_to_yolo --root data/raw/RDD2022
 ```
 
-`configs/classes.yaml` es la única correspondencia de clases. Los datos, pesos, videos y artefactos grandes están excluidos de Git.
+`configs/classes.yaml` es la única correspondencia de clases. Las imágenes del dataset, los videos y los archivos de `artifacts/app/` están excluidos de Git; algunos reportes y checkpoints están versionados.
 
 ## Uso del modelo entrenado
+
+Para reproducir las cuentas operativas del test se necesitan las imágenes y etiquetas RDD2022 preparadas localmente. Desde `dm1`, ejecuta `python -m ml.operational_metrics --model artifacts/runs/model_b/weights/best.pt --name model_b_test_repro --split test --conf 0.10 --iou 0.50 --imgsz 640`. `python -m ml.value_analysis --model-b artifacts/evaluations/model_b_test_repro/operational.json --output artifacts/evaluations/value_repro.json` recalcula el escenario Q100/Q5 con el reporte A existente. El barrido de validación A/B se conserva en `artifacts/evaluations/validation_threshold_cost.json`; sus cuentas se regeneran con `--split val`, cada modelo y cada umbral de la tabla del informe, usando nombres de salida distintos. `ml.operational_metrics` admite `--device cpu` si no hay CUDA; las cifras de tiempo de CPU pueden diferir mucho de las mediciones en RTX 3050.
 
 La calibración en el conjunto de validación seleccionó `conf=0.10` para ambos modelos. El modelo B se establece como opción predeterminada porque obtuvo un recall y un F1 ligeramente superiores.
 
@@ -133,11 +141,11 @@ $env:PYTHONNOUSERSITE = "1"
 conda run -n dm1 python -m ml.predict --source ruta\al\recorrido.mp4 --device 0 --report
 ```
 
-Por defecto usa `artifacts/runs/model_b/weights/best.pt` y guarda los resultados en `artifacts/predictions/latest`. `--report` genera `detections.json` con clase, confianza y coordenadas. Se puede cambiar el modelo con `--model`, el nombre de salida con `--name` y exportar etiquetas con `--save-txt --save-conf`.
+Por defecto usa `artifacts/runs/model_b/weights/best.pt` y guarda los resultados en `artifacts/predictions/latest`. `--report` genera `detections.json` con clase, confianza y coordenadas `xyxy` de las cajas **dentro de la imagen**, no GPS. La geolocalización EXIF, metadatos de video y GPX corresponde al flujo de la aplicación web. Se puede cambiar el modelo con `--model`, el nombre de salida con `--name` y exportar etiquetas con `--save-txt --save-conf`.
 
 ### Interfaz local
 
-La interfaz web local permite cargar imágenes o videos, seleccionar el umbral de confianza, visualizar la evidencia y descargar el reporte JSON. Se ejecuta con el entorno `dm1`:
+La interfaz web local permite cargar imágenes o videos, seleccionar el umbral de confianza, visualizar la evidencia y descargar el reporte JSON. Con `dm1` activado, se ejecuta así en GPU; para CPU, sustituye `"0"` por `"cpu"`:
 
 ```powershell
 $env:PYTHONNOUSERSITE = "1"
