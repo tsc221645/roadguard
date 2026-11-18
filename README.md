@@ -205,3 +205,19 @@ Las predicciones son una ayuda para revisión y deben confirmarse visualmente; n
 RoadGuard es un MVP académico local. No estima profundidad ni costo real de reparación, no ofrece localización centimétrica, no reemplaza una inspección profesional y no envía reportes automáticamente a instituciones públicas. El GPS representa aproximadamente la posición de la cámara, no necesariamente la ubicación exacta del defecto.
 
 El código se publica bajo AGPL-3.0. Las licencias y atribuciones del dataset, pesos y dependencias deben conservarse por separado.
+
+## Laboratorio 10 — Explainable AI (XAI)
+
+El laboratorio audita qué regiones de una imagen alteran una **detección concreta** del modelo B. Usa oclusión 8×8 con reemplazo desenfocado y vuelve a ejecutar YOLO para cada región. Se eligió porque permite examinar las cajas finales sin adaptar gradientes a la cabeza de detección y NMS; la explicación mide sensibilidad a la perturbación, no causalidad.
+
+Usa el entorno `dm1` y las dependencias de `requirements.in` instaladas como se indica arriba. Se requieren el checkpoint `artifacts/runs/model_b/weights/best.pt` y el test procesado de RDD2022 en `data/processed/rdd2022/images/test` y `data/processed/rdd2022/labels/test`. El dataset no está incluido en Git; se prepara con los comandos de la sección «Preparación del dataset». No se necesitan servicios externos ni reentrenamiento.
+
+Desde la raíz del repositorio en PowerShell, el mismo comando genera cinco explicaciones locales, una muestra global adicional de 20 casos, el benchmark, las figuras, los resultados numéricos y el PDF de cuatro páginas:
+
+```powershell
+conda activate dm1
+$env:PYTHONNOUSERSITE = "1"
+python -m explainability.run_xai --device 0 --grid 8 --batch 16
+```
+
+Para CPU, cambia `--device 0` por `--device cpu`; reduce `--batch` si falta memoria. Para una prueba rápida de integración, añade `--smoke --output explainability/outputs_smoke`; realiza el inventario del test y explica cinco casos locales y uno global, sin generar figuras ni PDF. La ejecución completa guarda `results.json`, `local_cases.png`, `global_summary.png` y `laboratorio10_xai.pdf` en `explainability/outputs/`. La semilla es 42. El código registra el hash del checkpoint, versiones, parámetros, IDs de imágenes y tiempos; diferencias numéricas entre CPU y GPU son posibles. Consulta [la metodología, resultados y límites](explainability/README.md) y [la matriz de cumplimiento](explainability/COMPLIANCE.md).
