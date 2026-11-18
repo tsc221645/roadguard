@@ -4,7 +4,9 @@ docs/
 !README.md
 !REPORTE_METRICAS.md
 !Trabajo_escrito_RoadGuard.md
+!explainability/*.md
 *.pdf
+!explainability/outputs/laboratorio10_xai.pdf
 *.docx
 *.pptx
 run.txt
@@ -49,6 +51,7 @@ data/video_ds1/
 artifacts/app/
 artifacts/predictions/
 /runs/
+explainability/outputs_smoke/
 *.pt
 !artifacts/runs/**/weights/*.pt
 *.pth
